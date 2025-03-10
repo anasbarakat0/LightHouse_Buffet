@@ -18,5 +18,11 @@
         "titleBar.inactiveBackground": "#eb831799",
         "titleBar.inactiveForeground": "#15202b99"
     },
-    "peacock.color": "EB8317"
+    "peacock.color": "EB8317",
+    "cSpell.words": [
+        "Kufi",
+        "Noto",
+        "Raleway",
+        "Usecase"
+    ]
 }

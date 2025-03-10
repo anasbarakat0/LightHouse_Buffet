@@ -1,7 +1,5 @@
 // ignore_for_file: public_member_api_docs, sort_constructors_first
 import 'package:dio/dio.dart';
-import 'package:lighthouse_buffet/core/utils/shared_prefrences.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 class Service {
   Dio dio;
@@ -13,12 +11,12 @@ class Service {
   options(bool auth) {
     Options options;
     if (auth) {
-      print(storage.get<SharedPreferences>().getString("token"));
+      // print(storage.get<SharedPreferences>().getString("token"));
       options = Options(
         headers: {
           'Accept': '*/*',
           'Authorization':
-              'Bearer  ${storage.get<SharedPreferences>().getString("token")} ',
+              'Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJzb21lRW1haWxAZ21haWwuY29tIiwiaWF0IjoxNzQxMTc1OTA2LCJleHAiOjE3NDM3Njc5MDZ9.z9bPpCjqat1h7AHhBXY_tID39-LZTrhOqKdtDKQ8qD4 ',
         },
       );
       //${storage.get<SharedPreferences>().getString("token")}

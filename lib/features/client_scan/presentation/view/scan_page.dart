@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
+import 'package:lighthouse_buffet/core/resources/colors.dart';
+import 'package:lighthouse_buffet/features/invoice/presentation/view/invoice_page.dart';
 
 class ScanPage extends StatefulWidget {
   const ScanPage({super.key});
@@ -10,7 +12,6 @@ class ScanPage extends StatefulWidget {
 
 class _ScanPageState extends State<ScanPage> {
   final TextEditingController _controller = TextEditingController();
-   String _scannedData = "";
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -32,30 +33,35 @@ class _ScanPageState extends State<ScanPage> {
             ),
             Text(
               "Scan Your QR Code",
-              style: Theme.of(context).textTheme.bodyLarge,
+              style: Theme.of(context)
+                  .textTheme
+                  .bodyLarge
+                  ?.copyWith(color: lightGrey),
             ),
-            
-            SizedBox(height: 16),
+            const SizedBox(height: 16),
             Opacity(
               opacity: 0,
               child: TextField(
                 autofocus: true,
                 controller: _controller,
                 keyboardType: TextInputType.none,
-                
-                onChanged: (value) {
-                  setState(() {
-                    _scannedData = value;
-                  });
+                onSubmitted: (value) {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => InvoicePage(
+                        uuid: value,
+                      ),
+                    ),
+                  );
                   _controller.clear();
                 },
-                decoration: InputDecoration(
+                decoration: const InputDecoration(
                   border: OutlineInputBorder(),
                   labelText: 'Scanned QR Code',
                 ),
               ),
             ),
-            
           ],
         ),
       ),
