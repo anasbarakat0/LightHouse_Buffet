@@ -1,1 +1,1 @@
-const String baseUrl = "http://199.192.19.220:3010";
+const String baseUrl = "http://api.lighthouse-hub.com:3010";

@@ -11,9 +11,9 @@ class CreateInvoiceService extends Service {
     try {
       print(body.toMap());
       response = await dio.post(
-        "$baseUrl/api/v1/buffet-invoices",
+        "$baseUrl/api/v1/buffet-invoices/new",
         data: body.toMap(),
-        options: options(true),
+        options: options(false),
       );
       return response;
     } on DioException catch (e) {

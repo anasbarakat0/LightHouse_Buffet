@@ -135,7 +135,18 @@ class _InvoicePageState extends State<InvoicePage> {
               getAllProductsRepo: GetAllProductsRepo(
                 getAllProductsService: GetAllProductsService(dio: Dio()),
                 networkConnection: NetworkConnection(
-                  internetConnectionChecker: InternetConnectionChecker(),
+                  internetConnectionChecker: InternetConnectionChecker.createInstance(
+                    addresses: [
+                      AddressCheckOption(
+                        uri: Uri.parse("https://www.google.com"),
+                        timeout: const Duration(seconds: 3),
+                      ),
+                      AddressCheckOption(
+                        uri: Uri.parse("https://1.1.1.1"),
+                        timeout: const Duration(seconds: 3),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -146,7 +157,18 @@ class _InvoicePageState extends State<InvoicePage> {
             CreateInvoiceRepo(
               createInvoiceService: CreateInvoiceService(dio: Dio()),
               networkConnection: NetworkConnection(
-                internetConnectionChecker: InternetConnectionChecker(),
+                internetConnectionChecker: InternetConnectionChecker.createInstance(
+                    addresses: [
+                      AddressCheckOption(
+                        uri: Uri.parse("https://www.google.com"),
+                        timeout: const Duration(seconds: 3),
+                      ),
+                      AddressCheckOption(
+                        uri: Uri.parse("https://1.1.1.1"),
+                        timeout: const Duration(seconds: 3),
+                      ),
+                    ],
+                  ),
               ),
             ),
           ),
