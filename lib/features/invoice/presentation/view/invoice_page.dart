@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:internet_connection_checker/internet_connection_checker.dart';
+import 'package:lighthouse_buffet/core/error/failure.dart';
 import 'package:lighthouse_buffet/core/network/network_connection.dart';
 import 'package:lighthouse_buffet/core/resources/colors.dart';
 import 'package:lighthouse_buffet/features/client_scan/presentation/view/scan_page.dart';
@@ -12,9 +13,11 @@ import 'package:lighthouse_buffet/features/invoice/data/models/product_model.dar
 import 'package:lighthouse_buffet/features/invoice/data/models/product_invoice.dart';
 import 'package:lighthouse_buffet/features/invoice/data/repository/create_invoice_repo.dart';
 import 'package:lighthouse_buffet/features/invoice/data/repository/get_all_products_repo.dart';
+import 'package:lighthouse_buffet/features/invoice/data/repository/get_product_by_barcode_repo.dart';
 import 'package:lighthouse_buffet/features/invoice/data/source/local/product_data_source.dart';
 import 'package:lighthouse_buffet/features/invoice/data/source/remote/create_invoice_service.dart';
 import 'package:lighthouse_buffet/features/invoice/data/source/remote/get_all_products_service.dart';
+import 'package:lighthouse_buffet/features/invoice/data/source/remote/get_product_by_barcode_service.dart';
 import 'package:lighthouse_buffet/features/invoice/domain/usecase/get_all_products_usecase.dart';
 import 'package:lighthouse_buffet/features/invoice/presentation/Bloc/create_invoice_bloc.dart';
 import 'package:lighthouse_buffet/features/invoice/presentation/Bloc/get_all_products_bloc.dart';
@@ -38,21 +41,32 @@ class _InvoicePageState extends State<InvoicePage> {
   List<OrderRequest> productsForInvoice = [];
   List<ProductModel> productsForSearching = []; // Will only add unique products
   late ProductDataSource productDataSource;
-  int perPage = 50;
-  int currentPage = 1;
   late TextEditingController _controller;
+  late GetProductByBarcodeRepo _getProductByBarcodeRepo;
+  bool _isSearchingByBarcode = false;
 
   void removeFromInvoice(ProductInvoice productInvoice) {
     setState(() {
       products.remove(productInvoice);
-      totalPrice = products.fold(
-        0.0,
-        (prev, p) => prev + (p.product.consumptionPrice * p.quantity),
-      );
-      productDataSource = ProductDataSource(
-        productData: products,
-        onRemove: removeFromInvoice,
-      );
+      _updateTotalPrice();
+    });
+  }
+
+  void _updateTotalPrice() {
+    totalPrice = products.fold(
+      0.0,
+      (prev, p) => prev + (p.product.consumptionPrice * p.quantity),
+    );
+    productDataSource = ProductDataSource(
+      productData: products,
+      onRemove: removeFromInvoice,
+    );
+  }
+
+  void updateQuantity(ProductInvoice productInvoice, int newQuantity) {
+    setState(() {
+      productInvoice.quantity = newQuantity;
+      _updateTotalPrice();
     });
   }
 
@@ -65,12 +79,49 @@ class _InvoicePageState extends State<InvoicePage> {
       productData: products,
       onRemove: removeFromInvoice,
     );
+
+    // Initialize barcode search repository
+    final dio = Dio();
+    final service = GetProductByBarcodeService(dio: dio);
+    final networkConnection = NetworkConnection(
+      internetConnectionChecker: InternetConnectionChecker.createInstance(
+        addresses: [
+          AddressCheckOption(
+            uri: Uri.parse("https://www.google.com"),
+            timeout: const Duration(seconds: 3),
+          ),
+          AddressCheckOption(
+            uri: Uri.parse("https://1.1.1.1"),
+            timeout: const Duration(seconds: 3),
+          ),
+        ],
+      ),
+    );
+    _getProductByBarcodeRepo = GetProductByBarcodeRepo(
+      getProductByBarcodeService: service,
+      networkConnection: networkConnection,
+    );
   }
 
   @override
   void dispose() {
     _controller.dispose();
     super.dispose();
+  }
+
+  String _getBarcodeErrorMessage(Failures failure) {
+    if (failure is ServerFailure) {
+      // Check if it's a "product not found" error
+      if (failure.message.toLowerCase().contains("no product") ||
+          failure.message.toLowerCase().contains("not found")) {
+        return "This product is not available in the system. Please try again or contact the reception desk for assistance.";
+      }
+      return failure.message;
+    } else if (failure is OfflineFailure) {
+      return "No internet connection. Please check your connection and try again.";
+    } else {
+      return "An error occurred while searching for the product. Please try again or contact the reception desk for assistance.";
+    }
   }
 
   void addToInvoice(ProductModel product) {
@@ -114,14 +165,7 @@ class _InvoicePageState extends State<InvoicePage> {
         }
       }
       // Update the product data source and recalc total price
-      productDataSource = ProductDataSource(
-        productData: products,
-        onRemove: removeFromInvoice,
-      );
-      totalPrice = products.fold(
-        0.0,
-        (prev, p) => prev + (p.product.consumptionPrice * p.quantity),
-      );
+      _updateTotalPrice();
     });
   }
 
@@ -135,7 +179,8 @@ class _InvoicePageState extends State<InvoicePage> {
               getAllProductsRepo: GetAllProductsRepo(
                 getAllProductsService: GetAllProductsService(dio: Dio()),
                 networkConnection: NetworkConnection(
-                  internetConnectionChecker: InternetConnectionChecker.createInstance(
+                  internetConnectionChecker:
+                      InternetConnectionChecker.createInstance(
                     addresses: [
                       AddressCheckOption(
                         uri: Uri.parse("https://www.google.com"),
@@ -150,25 +195,26 @@ class _InvoicePageState extends State<InvoicePage> {
                 ),
               ),
             ),
-          )..add(GetAllProducts(page: currentPage, size: perPage)),
+          )..add(GetAllProducts()),
         ),
         BlocProvider(
           create: (context) => CreateInvoiceBloc(
             CreateInvoiceRepo(
               createInvoiceService: CreateInvoiceService(dio: Dio()),
               networkConnection: NetworkConnection(
-                internetConnectionChecker: InternetConnectionChecker.createInstance(
-                    addresses: [
-                      AddressCheckOption(
-                        uri: Uri.parse("https://www.google.com"),
-                        timeout: const Duration(seconds: 3),
-                      ),
-                      AddressCheckOption(
-                        uri: Uri.parse("https://1.1.1.1"),
-                        timeout: const Duration(seconds: 3),
-                      ),
-                    ],
-                  ),
+                internetConnectionChecker:
+                    InternetConnectionChecker.createInstance(
+                  addresses: [
+                    AddressCheckOption(
+                      uri: Uri.parse("https://www.google.com"),
+                      timeout: const Duration(seconds: 3),
+                    ),
+                    AddressCheckOption(
+                      uri: Uri.parse("https://1.1.1.1"),
+                      timeout: const Duration(seconds: 3),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -209,24 +255,104 @@ class _InvoicePageState extends State<InvoicePage> {
       ],
       child: Builder(builder: (context) {
         return Scaffold(
+          backgroundColor: darkNavy,
           body: Row(
             children: [
+              // Invoice Sidebar
               InvoiceWidget(
-                onBarcodeScanned: (value) {
+                onBarcodeScanned: (value) async {
+                  if (_isSearchingByBarcode)
+                    return; // Prevent multiple simultaneous searches
+
                   print("Scanned barcode: $value");
+
+                  setState(() {
+                    _isSearchingByBarcode = true;
+                  });
+
+                  // First try to find in local list
                   try {
-                    // Find the product by barcode (ensure uniqueness by id)
                     var add = productsForSearching
                         .firstWhere((p) => p.barCode == value);
+                    setState(() {
+                      _isSearchingByBarcode = false;
+                    });
                     addToInvoice(add);
+                    return;
                   } catch (e) {
-                    print("No element found with barcode: $value");
+                    // Not found locally, search via API
                   }
+
+                  // Search via API
+                  final result =
+                      await _getProductByBarcodeRepo.getProductByBarcode(value);
+
+                  setState(() {
+                    _isSearchingByBarcode = false;
+                  });
+
+                  result.fold(
+                    (failure) {
+                      // Handle error
+                      String errorMessage = _getBarcodeErrorMessage(failure);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(errorMessage),
+                          backgroundColor: Colors.red,
+                          duration: const Duration(seconds: 4),
+                        ),
+                      );
+                    },
+                    (response) {
+                      // Handle success
+                      if (response.status == "OK" && response.body != null) {
+                        // Convert ProductByBarcodeBody to ProductModel
+                        final productBody = response.body!;
+                        final product = ProductModel(
+                          id: productBody.id,
+                          name: productBody.name,
+                          costPrice: productBody.costPrice,
+                          quantity: productBody.quantity,
+                          consumptionPrice: productBody.consumptionPrice,
+                          barCode: productBody.barCode,
+                        );
+
+                        // Add to local list if not already there
+                        if (!productsForSearching
+                            .any((p) => p.id == product.id)) {
+                          productsForSearching.add(product);
+                        }
+
+                        addToInvoice(product);
+                      } else {
+                        // Invalid response
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: const Text(
+                              "This product is not available in the system. Please try again or contact the reception desk for assistance.",
+                            ),
+                            backgroundColor: Colors.orange,
+                            duration: const Duration(seconds: 4),
+                          ),
+                        );
+                      }
+                    },
+                  );
                 },
                 productDataSource: productDataSource,
                 totalPrice: totalPrice,
+                onRemove: removeFromInvoice,
+                onQuantityUpdate: updateQuantity,
                 onSubmit: () {
-                  // Clear previous orders to avoid duplicates
+                  if (products.isEmpty) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text("Please add at least one product"),
+                        backgroundColor: Colors.orange,
+                      ),
+                    );
+                    return;
+                  }
                   productsForInvoice.clear();
                   for (var p in products) {
                     productsForInvoice.add(
@@ -244,31 +370,37 @@ class _InvoicePageState extends State<InvoicePage> {
                       );
                 },
               ),
-              Container(
-                width: MediaQuery.of(context).size.width * 2 / 3,
-                height: MediaQuery.of(context).size.height,
-                color: navy,
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    Opacity(
-                      opacity: 0.3,
-                      child: SvgPicture.asset(
-                        "assets/svg/lighthouse_ch.svg",
-                        width: MediaQuery.of(context).size.width / 2.5,
-                      ),
+
+              // Products Grid Section
+              Expanded(
+                child: Container(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [navy, darkNavy],
                     ),
-                    // Use Positioned.fill to fill available space
-                    Positioned.fill(
-                      child:
-                          BlocConsumer<GetAllProductsBloc, GetAllProductsState>(
+                  ),
+                  child: Stack(
+                    children: [
+                      // Background Pattern
+                      Positioned.fill(
+                        child: Opacity(
+                          opacity: 0.15,
+                          child: SvgPicture.asset(
+                            "assets/svg/lighthouse_ch.svg",
+                            fit: BoxFit.contain,
+                          ),
+                        ),
+                      ),
+
+                      // Products Grid
+                      BlocConsumer<GetAllProductsBloc, GetAllProductsState>(
                         listener: (context, state) {
                           print("Products state: ${state.runtimeType}");
                         },
                         builder: (context, state) {
                           if (state is SuccessGettingProducts) {
-                            // Optionally, refresh the productsForSearching list only once:
-                            // Here we clear and add unique products from the response.
                             productsForSearching.clear();
                             for (var pMap in state.response.body) {
                               var product = ProductModel.fromMap(pMap.toMap());
@@ -277,32 +409,93 @@ class _InvoicePageState extends State<InvoicePage> {
                                 productsForSearching.add(product);
                               }
                             }
+
                             return Column(
                               children: [
+                                // Header
+                                Container(
+                                  padding: const EdgeInsets.all(24),
+                                  decoration: BoxDecoration(
+                                    color: darkNavy.withOpacity(0.5),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(0.2),
+                                        blurRadius: 10,
+                                        offset: const Offset(0, 2),
+                                      ),
+                                    ],
+                                  ),
+                                  child: SafeArea(
+                                    bottom: false,
+                                    child: Row(
+                                      children: [
+                                        Icon(
+                                          Icons.shopping_bag_outlined,
+                                          color: orange,
+                                          size: 28,
+                                        ),
+                                        const SizedBox(width: 12),
+                                        Text(
+                                          "Products",
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .titleLarge
+                                              ?.copyWith(
+                                                color: Colors.white,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                        ),
+                                        const Spacer(),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(
+                                              horizontal: 16, vertical: 8),
+                                          decoration: BoxDecoration(
+                                            color: orange.withOpacity(0.2),
+                                            borderRadius:
+                                                BorderRadius.circular(20),
+                                            border: Border.all(
+                                              color: orange.withOpacity(0.5),
+                                              width: 1,
+                                            ),
+                                          ),
+                                          child: Text(
+                                            "${state.response.body.length} items",
+                                            style: Theme.of(context)
+                                                .textTheme
+                                                .bodyMedium
+                                                ?.copyWith(
+                                                  color: orange,
+                                                  fontWeight: FontWeight.w600,
+                                                ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+
+                                // Products Grid
                                 Expanded(
                                   child: Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 8),
+                                    padding: const EdgeInsets.all(16),
                                     child: GridView.builder(
                                       gridDelegate:
                                           const SliverGridDelegateWithFixedCrossAxisCount(
                                         crossAxisCount: 4,
-                                        crossAxisSpacing: 0,
-                                        mainAxisSpacing: 10,
-                                        childAspectRatio: 0.88,
+                                        crossAxisSpacing: 8,
+                                        mainAxisSpacing: 8,
+                                        childAspectRatio: 1.7,
                                       ),
                                       itemCount: state.response.body.length,
                                       itemBuilder: (context, index) {
                                         var product = ProductModel.fromMap(
                                           state.response.body[index].toMap(),
                                         );
-                                        return InkWell(
+                                        return ProductCardWidget(
+                                          product: product,
                                           onTap: () {
                                             addToInvoice(product);
                                           },
-                                          child: ProductCardWidget(
-                                            product: product,
-                                          ),
                                         );
                                       },
                                     ),
@@ -311,34 +504,55 @@ class _InvoicePageState extends State<InvoicePage> {
                               ],
                             );
                           } else if (state is LoadingGetProducts) {
-                            return const Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Text(
-                                  "Loading...",
-                                  style: TextStyle(color: Colors.white),
-                                ),
-                                SizedBox(height: 20),
-                                CircularProgressIndicator(),
-                              ],
+                            return Center(
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  CircularProgressIndicator(
+                                    color: orange,
+                                    strokeWidth: 3,
+                                  ),
+                                  const SizedBox(height: 24),
+                                  Text(
+                                    "Loading Products...",
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .titleMedium
+                                        ?.copyWith(
+                                          color: Colors.white,
+                                        ),
+                                  ),
+                                ],
+                              ),
                             );
                           } else {
-                            return const Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Text(
-                                  "Loading...",
-                                  style: TextStyle(color: Colors.white),
-                                ),
-                                SizedBox(height: 20),
-                                CircularProgressIndicator(),
-                              ],
+                            return Center(
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.error_outline,
+                                    size: 64,
+                                    color: Colors.red[300],
+                                  ),
+                                  const SizedBox(height: 16),
+                                  Text(
+                                    "Error loading products",
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .titleMedium
+                                        ?.copyWith(
+                                          color: Colors.white,
+                                        ),
+                                  ),
+                                ],
+                              ),
                             );
                           }
                         },
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ],

@@ -16,10 +16,11 @@ class GetAllProductsRepo {
     required this.networkConnection,
   });
 
-  Future<Either<Failures,GetAllProductsResponseModel>> getAllProductsRepo(int page,int size)async{
+  Future<Either<Failures,GetAllProductsResponseModel>> getAllProductsRepo()async{
     if (await networkConnection.isConnected) {
       try {
-        var data = await getAllProductsService.getAllProductsService(page, size);
+        var data = await getAllProductsService.getAllProductsService();
+        // Response is now a direct array
         var response = GetAllProductsResponseModel.fromMap(data.data);
         
         return Right(response);
@@ -27,14 +28,14 @@ class GetAllProductsRepo {
         return Left(ForbiddenFailure(message: forbiddenMessage));
       } on BAD_REQUEST catch (e) {
         return Left(ServerFailure(message: e.message));
-      } on NoData catch (e) {
-        return Left(NoDataFailure(message: e.message));
       } on DioException catch (e) {
         return Left(
           ServerFailure(
-            message: e.response!.data.toString(),
+            message: e.response != null ? e.response!.data.toString() : e.toString(),
           ),
         );
+      } catch (e) {
+        return Left(ServerFailure(message: e.toString()));
       }
     } else {
       return Left(OfflineFailure());

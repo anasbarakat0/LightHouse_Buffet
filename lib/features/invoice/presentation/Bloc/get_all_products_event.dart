@@ -5,11 +5,5 @@ part of 'get_all_products_bloc.dart';
 abstract class GetAllProductsEvent {}
 
 class GetAllProducts extends GetAllProductsEvent {
-  final int page;
-  final int size;
-  GetAllProducts({
-    required this.page,
-    required this.size,
-  });
-
+  GetAllProducts();
 }

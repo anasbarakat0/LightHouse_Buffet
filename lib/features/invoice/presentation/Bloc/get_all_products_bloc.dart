@@ -14,7 +14,7 @@ class GetAllProductsBloc
   GetAllProductsBloc(this.getAllProductsUsecase)
       : super(GetAllProductsInitial()) {
     on<GetAllProducts>((event, emit) async {
-      var data = await getAllProductsUsecase.call(event.page, event.size);
+      var data = await getAllProductsUsecase.call();
       data.fold((failures) {
         switch (failures) {
           case ServerFailure():

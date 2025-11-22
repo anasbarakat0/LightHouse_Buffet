@@ -3,26 +3,22 @@ import 'package:lighthouse_buffet/core/constants/app_url.dart';
 import 'package:lighthouse_buffet/core/error/exception.dart';
 import 'package:lighthouse_buffet/core/utils/service.dart';
 
-class GetAllProductsService extends Service {
-  GetAllProductsService({required super.dio});
+class GetProductByBarcodeService extends Service {
+  GetProductByBarcodeService({required super.dio});
 
-  Future<Response> getAllProductsService() async {
+  Future<Response> getProductByBarcode(String barcode) async {
     try {
       response = await dio.get(
-        "$baseUrl/api/products/shortcut/true",
+        "$baseUrl/api/products/barcode/$barcode",
         options: options(false),
       );
-      // Response is now a direct array, not an object with body
-      if (response.data is List && (response.data as List).isEmpty) {
-        return response; // Return empty array, don't throw exception
-      }
       return response;
     } on DioException catch (e) {
       if (e.response != null && e.response!.data != null) {
         if (e.response!.data is Map) {
           if (e.response!.data["status"] == "BAD_REQUEST") {
             throw BAD_REQUEST.fromMap(e.response!.data);
-          } else if (e.response!.data['status'] == 403) {
+          } else if (e.response!.data["status"] == 403) {
             throw Forbidden();
           }
         }
@@ -31,3 +27,4 @@ class GetAllProductsService extends Service {
     }
   }
 }
+

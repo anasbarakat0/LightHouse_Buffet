@@ -12,8 +12,7 @@ class GetAllProductsUsecase {
     required this.getAllProductsRepo,
   });
 
-  Future<Either<Failures, GetAllProductsResponseModel>> call(
-      int page, int size) async {
-    return await getAllProductsRepo.getAllProductsRepo(page, size);
+  Future<Either<Failures, GetAllProductsResponseModel>> call() async {
+    return await getAllProductsRepo.getAllProductsRepo();
   }
 }
