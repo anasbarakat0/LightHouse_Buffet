@@ -45,8 +45,8 @@ class _InvoiceWidgetState extends State<InvoiceWidget> {
     super.dispose();
   }
 
-  void _handleKeyEvent(RawKeyEvent event) {
-    if (event is RawKeyDownEvent) {
+  void _handleKeyEvent(KeyEvent event) {
+    if (event is KeyDownEvent) {
       if (event.logicalKey == LogicalKeyboardKey.enter) {
         if (_barcodeBuffer.isNotEmpty) {
           widget.onBarcodeScanned(_barcodeBuffer);
@@ -63,9 +63,9 @@ class _InvoiceWidgetState extends State<InvoiceWidget> {
 
   @override
   Widget build(BuildContext context) {
-    return RawKeyboardListener(
+    return KeyboardListener(
       focusNode: _focusNode,
-      onKey: _handleKeyEvent,
+      onKeyEvent: _handleKeyEvent,
       child: Container(
         width: MediaQuery.of(context).size.width / 3,
         decoration: BoxDecoration(

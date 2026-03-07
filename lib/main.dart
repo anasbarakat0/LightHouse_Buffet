@@ -1,19 +1,71 @@
+import 'dart:async';
+
 import 'package:easy_localization/easy_localization.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:lighthouse_buffet/core/di/injection.dart';
 import 'package:lighthouse_buffet/core/resources/colors.dart';
+import 'package:lighthouse_buffet/core/utils/shared_prefrences.dart';
 import 'package:lighthouse_buffet/features/client_scan/presentation/view/scan_page.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await setUp();
+  await initInjection();
   await EasyLocalization.ensureInitialized();
 
-  runApp(
-    EasyLocalization(
+  FlutterError.onError = (FlutterErrorDetails details) {
+    FlutterError.presentError(details);
+    if (kReleaseMode) {
+      // Optional: send to Firebase Crashlytics or Sentry, e.g.:
+      // FirebaseCrashlytics.instance.recordFlutterFatalError(details);
+      // or Sentry.captureException(details.exception, stackTrace: details.stack);
+    }
+  };
+
+  ErrorWidget.builder = (FlutterErrorDetails details) {
+    return Material(
+      child: Container(
+        color: Colors.white,
+        alignment: Alignment.center,
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.error_outline, size: 48, color: Colors.red[700]),
+            const SizedBox(height: 16),
+            Text(
+              'Something went wrong.',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 18, color: Colors.grey[800]),
+            ),
+          ],
+        ),
+      ),
+    );
+  };
+
+  runZonedGuarded(
+    () {
+      runApp(
+        EasyLocalization(
       supportedLocales: const [Locale('en'), Locale('ar')],
       path: "assets/translations",
       fallbackLocale: const Locale('ar'),
       child: const MainApp(),
     ),
+      );
+    },
+    (error, stackTrace) {
+      if (kReleaseMode) {
+        // Optional: send to Firebase Crashlytics or Sentry, e.g.:
+        // FirebaseCrashlytics.instance.recordError(error, stackTrace);
+        // or Sentry.captureException(error, stackTrace: stackTrace);
+      } else {
+        debugPrint('Unhandled error: $error');
+        debugPrint(stackTrace.toString());
+      }
+    },
   );
 }
 

@@ -29,9 +29,13 @@ class CreateInvoiceRepo {
         print(e.message);
         return Left(ServerFailure(message: e.message));
       } on DioException catch (e) {
-        print('e.response!.data');
-        print(e.response!.data);
-        return Left(ServerFailure(message: e.response!.data.toString()));
+        final response = e.response;
+        final data = response?.data;
+        final message = (response != null && data != null)
+            ? data.toString()
+            : (e.message ?? e.toString());
+        print('DioException in createInvoiceRepo: $message');
+        return Left(ServerFailure(message: message));
       }
     } else {
       return Left(OfflineFailure());

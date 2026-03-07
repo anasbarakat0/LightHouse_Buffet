@@ -25,6 +25,19 @@ class ProductDataSource extends DataGridSource {
   @override
   List<DataGridRow> get rows => _productData;
 
+  void updateData(List<ProductInvoice> productData) {
+    _productData = productData.map<DataGridRow>((e) {
+      return DataGridRow(cells: [
+        DataGridCell<ProductInvoice>(columnName: 'remove', value: e),
+        DataGridCell<String>(columnName: 'Item', value: e.product.name),
+        DataGridCell<int>(columnName: 'Qty', value: e.quantity),
+        DataGridCell<double>(
+            columnName: 'unit price', value: e.product.consumptionPrice),
+      ]);
+    }).toList();
+    notifyListeners();
+  }
+
   @override
   DataGridRowAdapter buildRow(DataGridRow row) {
     return DataGridRowAdapter(

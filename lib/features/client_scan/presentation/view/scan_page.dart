@@ -1,13 +1,10 @@
-import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
-import 'package:internet_connection_checker/internet_connection_checker.dart';
 import 'package:lighthouse_buffet/core/constants/messages.dart';
+import 'package:lighthouse_buffet/core/di/injection.dart';
 import 'package:lighthouse_buffet/core/error/failure.dart';
-import 'package:lighthouse_buffet/core/network/network_connection.dart';
 import 'package:lighthouse_buffet/core/resources/colors.dart';
 import 'package:lighthouse_buffet/features/client_scan/data/repository/qr_code_verification_repo.dart';
-import 'package:lighthouse_buffet/features/client_scan/data/source/remote/qr_code_verification_service.dart';
 import 'package:lighthouse_buffet/features/invoice/presentation/view/invoice_page.dart';
 
 class ScanPage extends StatefulWidget {
@@ -26,29 +23,7 @@ class _ScanPageState extends State<ScanPage> {
   @override
   void initState() {
     super.initState();
-    // Initialize service and repository
-    final dio = Dio();
-    final service = QrCodeVerificationService(dio: dio);
-    final networkConnection = NetworkConnection(
-      internetConnectionChecker: InternetConnectionChecker.createInstance(
-        addresses: [
-          AddressCheckOption(
-            uri: Uri.parse("https://www.google.com"),
-            timeout: const Duration(seconds: 3),
-          ),
-          AddressCheckOption(
-            uri: Uri.parse("https://1.1.1.1"),
-            timeout: const Duration(seconds: 3),
-          ),
-        ],
-      ),
-    );
-    _qrCodeVerificationRepo = QrCodeVerificationRepo(
-      qrCodeVerificationService: service,
-      networkConnection: networkConnection,
-    );
-
-    // Request focus after the first frame
+    _qrCodeVerificationRepo = getIt<QrCodeVerificationRepo>();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _requestFocus();
     });
@@ -83,29 +58,29 @@ class _ScanPageState extends State<ScanPage> {
 
     result.fold(
       (failure) {
-        // Handle error
+        if (!mounted) return;
         setState(() {
           _isVerifying = false;
         });
         String errorMessage = _getErrorMessage(failure);
         _controller.clear();
+        if (!mounted) return;
         _showErrorMessage(errorMessage);
-        // Re-request focus after showing error to continue scanning
         Future.delayed(const Duration(milliseconds: 100), () {
           _requestFocus();
         });
       },
       (response) {
-        // Handle success
+        if (!mounted) return;
         setState(() {
           _isVerifying = false;
         });
 
         if (response.message == "QR Code verified successfully" &&
             response.status == "OK") {
-          // Navigate to invoice page
           final uuid = response.body?.uuid ?? qrCode;
           _controller.clear();
+          if (!mounted) return;
           Navigator.push(
             context,
             MaterialPageRoute(
@@ -115,10 +90,9 @@ class _ScanPageState extends State<ScanPage> {
             ),
           );
         } else {
-          // Invalid QR code
           _controller.clear();
+          if (!mounted) return;
           _showErrorMessage(response.message);
-          // Re-request focus after showing error to continue scanning
           Future.delayed(const Duration(milliseconds: 100), () {
             _requestFocus();
           });

@@ -10,25 +10,23 @@ class Service {
     required this.dio,
   });
 
-  options(bool auth) {
-    Options options;
+  Options options(bool auth) {
     if (auth) {
-      // print(storage.get<SharedPreferences>().getString("token"));
-      options = Options(
-        headers: {
-          'Accept': '*/*',
-          'Authorization':
-              'Bearer ${storage.get<SharedPreferences>().getString("token")} ',
-        },
-      );
-      return options;
-    } else {
-      options = Options(
-        headers: {
-          'Accept': '*/*',
-          'Content-Type': 'application/json',
-        },
-      );
+      final token = storage.get<SharedPreferences>().getString("token");
+      final headers = <String, dynamic>{
+        'Accept': '*/*',
+        'Content-Type': 'application/json',
+      };
+      if (token != null && token.isNotEmpty) {
+        headers['Authorization'] = 'Bearer $token';
+      }
+      return Options(headers: headers);
     }
+    return Options(
+      headers: {
+        'Accept': '*/*',
+        'Content-Type': 'application/json',
+      },
+    );
   }
 }

@@ -18,14 +18,17 @@ class CreateInvoiceService extends Service {
       return response;
     } on DioException catch (e) {
       print("DioException in createInvoice");
-      if (e.response!.data["status"] == "BAD_REQUEST") {
-        print(e.response!.data);
-        throw BAD_REQUEST.fromMap(e.response!.data);
-      } else if (e.response!.data["status"] == 403) {
-        throw Forbidden();
-      } else {
-        rethrow;
+      final response = e.response;
+      final data = response?.data;
+      if (response != null && data != null && data is Map) {
+        if (data["status"] == "BAD_REQUEST") {
+          print(data);
+          throw BAD_REQUEST.fromMap(Map<String, dynamic>.from(data));
+        } else if (data["status"] == 403) {
+          throw Forbidden();
+        }
       }
+      rethrow;
     }
   }
 }

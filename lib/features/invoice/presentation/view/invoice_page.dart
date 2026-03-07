@@ -1,12 +1,9 @@
 // ignore_for_file: public_member_api_docs
-import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/svg.dart';
-import 'package:internet_connection_checker/internet_connection_checker.dart';
+import 'package:lighthouse_buffet/core/di/injection.dart';
 import 'package:lighthouse_buffet/core/error/failure.dart';
-import 'package:lighthouse_buffet/core/network/network_connection.dart';
-import 'package:lighthouse_buffet/core/resources/colors.dart';
 import 'package:lighthouse_buffet/features/client_scan/presentation/view/scan_page.dart';
 import 'package:lighthouse_buffet/features/invoice/data/models/create_invoice_request.dart';
 import 'package:lighthouse_buffet/features/invoice/data/models/product_model.dart';
@@ -15,14 +12,12 @@ import 'package:lighthouse_buffet/features/invoice/data/repository/create_invoic
 import 'package:lighthouse_buffet/features/invoice/data/repository/get_all_products_repo.dart';
 import 'package:lighthouse_buffet/features/invoice/data/repository/get_product_by_barcode_repo.dart';
 import 'package:lighthouse_buffet/features/invoice/data/source/local/product_data_source.dart';
-import 'package:lighthouse_buffet/features/invoice/data/source/remote/create_invoice_service.dart';
-import 'package:lighthouse_buffet/features/invoice/data/source/remote/get_all_products_service.dart';
-import 'package:lighthouse_buffet/features/invoice/data/source/remote/get_product_by_barcode_service.dart';
 import 'package:lighthouse_buffet/features/invoice/domain/usecase/get_all_products_usecase.dart';
 import 'package:lighthouse_buffet/features/invoice/presentation/Bloc/create_invoice_bloc.dart';
 import 'package:lighthouse_buffet/features/invoice/presentation/Bloc/get_all_products_bloc.dart';
 import 'package:lighthouse_buffet/features/invoice/presentation/widget/invoice_widget.dart';
 import 'package:lighthouse_buffet/features/invoice/presentation/widget/product_card_widget.dart';
+import 'package:lighthouse_buffet/core/resources/colors.dart';
 
 class InvoicePage extends StatefulWidget {
   final String uuid;
@@ -43,6 +38,8 @@ class _InvoicePageState extends State<InvoicePage> {
   late ProductDataSource productDataSource;
   late TextEditingController _controller;
   late GetProductByBarcodeRepo _getProductByBarcodeRepo;
+  late GetAllProductsBloc _getAllProductsBloc;
+  late CreateInvoiceBloc _createInvoiceBloc;
   bool _isSearchingByBarcode = false;
 
   void removeFromInvoice(ProductInvoice productInvoice) {
@@ -57,10 +54,7 @@ class _InvoicePageState extends State<InvoicePage> {
       0.0,
       (prev, p) => prev + (p.product.consumptionPrice * p.quantity),
     );
-    productDataSource = ProductDataSource(
-      productData: products,
-      onRemove: removeFromInvoice,
-    );
+    productDataSource.updateData(products);
   }
 
   void updateQuantity(ProductInvoice productInvoice, int newQuantity) {
@@ -79,28 +73,11 @@ class _InvoicePageState extends State<InvoicePage> {
       productData: products,
       onRemove: removeFromInvoice,
     );
-
-    // Initialize barcode search repository
-    final dio = Dio();
-    final service = GetProductByBarcodeService(dio: dio);
-    final networkConnection = NetworkConnection(
-      internetConnectionChecker: InternetConnectionChecker.createInstance(
-        addresses: [
-          AddressCheckOption(
-            uri: Uri.parse("https://www.google.com"),
-            timeout: const Duration(seconds: 3),
-          ),
-          AddressCheckOption(
-            uri: Uri.parse("https://1.1.1.1"),
-            timeout: const Duration(seconds: 3),
-          ),
-        ],
-      ),
-    );
-    _getProductByBarcodeRepo = GetProductByBarcodeRepo(
-      getProductByBarcodeService: service,
-      networkConnection: networkConnection,
-    );
+    _getProductByBarcodeRepo = getIt<GetProductByBarcodeRepo>();
+    _getAllProductsBloc = GetAllProductsBloc(
+      GetAllProductsUsecase(getAllProductsRepo: getIt<GetAllProductsRepo>()),
+    )..add(GetAllProducts());
+    _createInvoiceBloc = CreateInvoiceBloc(getIt<CreateInvoiceRepo>());
   }
 
   @override
@@ -171,55 +148,11 @@ class _InvoicePageState extends State<InvoicePage> {
 
   @override
   Widget build(BuildContext context) {
-    return MultiBlocProvider(
-      providers: [
-        BlocProvider(
-          create: (context) => GetAllProductsBloc(
-            GetAllProductsUsecase(
-              getAllProductsRepo: GetAllProductsRepo(
-                getAllProductsService: GetAllProductsService(dio: Dio()),
-                networkConnection: NetworkConnection(
-                  internetConnectionChecker:
-                      InternetConnectionChecker.createInstance(
-                    addresses: [
-                      AddressCheckOption(
-                        uri: Uri.parse("https://www.google.com"),
-                        timeout: const Duration(seconds: 3),
-                      ),
-                      AddressCheckOption(
-                        uri: Uri.parse("https://1.1.1.1"),
-                        timeout: const Duration(seconds: 3),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          )..add(GetAllProducts()),
-        ),
-        BlocProvider(
-          create: (context) => CreateInvoiceBloc(
-            CreateInvoiceRepo(
-              createInvoiceService: CreateInvoiceService(dio: Dio()),
-              networkConnection: NetworkConnection(
-                internetConnectionChecker:
-                    InternetConnectionChecker.createInstance(
-                  addresses: [
-                    AddressCheckOption(
-                      uri: Uri.parse("https://www.google.com"),
-                      timeout: const Duration(seconds: 3),
-                    ),
-                    AddressCheckOption(
-                      uri: Uri.parse("https://1.1.1.1"),
-                      timeout: const Duration(seconds: 3),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-        BlocListener<CreateInvoiceBloc, CreateInvoiceState>(
+    return BlocProvider<GetAllProductsBloc>.value(
+      value: _getAllProductsBloc,
+      child: BlocProvider<CreateInvoiceBloc>.value(
+        value: _createInvoiceBloc,
+        child: BlocListener<CreateInvoiceBloc, CreateInvoiceState>(
           listener: (context, state) {
             if (state is SuccessCreateInvoice) {
               Navigator.pushReplacement(
@@ -250,10 +183,7 @@ class _InvoicePageState extends State<InvoicePage> {
               );
             }
           },
-          child: Container(), // wrap your UI tree here
-        ),
-      ],
-      child: Builder(builder: (context) {
+          child: Builder(builder: (context) {
         return Scaffold(
           backgroundColor: darkNavy,
           body: Row(
@@ -287,13 +217,14 @@ class _InvoicePageState extends State<InvoicePage> {
                   final result =
                       await _getProductByBarcodeRepo.getProductByBarcode(value);
 
+                  if (!mounted) return;
                   setState(() {
                     _isSearchingByBarcode = false;
                   });
 
                   result.fold(
                     (failure) {
-                      // Handle error
+                      if (!mounted) return;
                       String errorMessage = _getBarcodeErrorMessage(failure);
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
@@ -304,9 +235,8 @@ class _InvoicePageState extends State<InvoicePage> {
                       );
                     },
                     (response) {
-                      // Handle success
+                      if (!mounted) return;
                       if (response.status == "OK" && response.body != null) {
-                        // Convert ProductByBarcodeBody to ProductModel
                         final productBody = response.body!;
                         final product = ProductModel(
                           id: productBody.id,
@@ -317,7 +247,6 @@ class _InvoicePageState extends State<InvoicePage> {
                           barCode: productBody.barCode,
                         );
 
-                        // Add to local list if not already there
                         if (!productsForSearching
                             .any((p) => p.id == product.id)) {
                           productsForSearching.add(product);
@@ -325,7 +254,6 @@ class _InvoicePageState extends State<InvoicePage> {
 
                         addToInvoice(product);
                       } else {
-                        // Invalid response
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
                             content: const Text(
@@ -401,9 +329,12 @@ class _InvoicePageState extends State<InvoicePage> {
                         },
                         builder: (context, state) {
                           if (state is SuccessGettingProducts) {
+                            final productsList = state.response.body
+                                .map<ProductModel>(
+                                    (p) => ProductModel.fromMap(p.toMap()))
+                                .toList();
                             productsForSearching.clear();
-                            for (var pMap in state.response.body) {
-                              var product = ProductModel.fromMap(pMap.toMap());
+                            for (var product in productsList) {
                               if (!productsForSearching
                                   .any((p) => p.id == product.id)) {
                                 productsForSearching.add(product);
@@ -459,7 +390,7 @@ class _InvoicePageState extends State<InvoicePage> {
                                             ),
                                           ),
                                           child: Text(
-                                            "${state.response.body.length} items",
+                                            "${productsList.length} items",
                                             style: Theme.of(context)
                                                 .textTheme
                                                 .bodyMedium
@@ -479,6 +410,7 @@ class _InvoicePageState extends State<InvoicePage> {
                                   child: Padding(
                                     padding: const EdgeInsets.all(16),
                                     child: GridView.builder(
+                                      cacheExtent: 200,
                                       gridDelegate:
                                           const SliverGridDelegateWithFixedCrossAxisCount(
                                         crossAxisCount: 4,
@@ -486,11 +418,9 @@ class _InvoicePageState extends State<InvoicePage> {
                                         mainAxisSpacing: 8,
                                         childAspectRatio: 1.7,
                                       ),
-                                      itemCount: state.response.body.length,
+                                      itemCount: productsList.length,
                                       itemBuilder: (context, index) {
-                                        var product = ProductModel.fromMap(
-                                          state.response.body[index].toMap(),
-                                        );
+                                        final product = productsList[index];
                                         return ProductCardWidget(
                                           product: product,
                                           onTap: () {
@@ -559,6 +489,8 @@ class _InvoicePageState extends State<InvoicePage> {
           ),
         );
       }),
+      ),
+      ),
     );
   }
 }
