@@ -49,11 +49,12 @@ Future<void> main() async {
     () {
       runApp(
         EasyLocalization(
-      supportedLocales: const [Locale('en'), Locale('ar')],
-      path: "assets/translations",
-      fallbackLocale: const Locale('ar'),
-      child: const MainApp(),
-    ),
+          supportedLocales: const [Locale('en'), Locale('ar')],
+          path: "assets/translations",
+          fallbackLocale: const Locale('ar'),
+          startLocale: const Locale('ar'),
+          child: const MainApp(),
+        ),
       );
     },
     (error, stackTrace) {

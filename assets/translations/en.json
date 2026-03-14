@@ -98,5 +98,9 @@
     "No_pending_tasks!": "No pending tasks!",
     "New_Task": "New Task",
     "capacity":"Capacity (Number of People)",
-    "capacity1":"Capacity"
+    "capacity1":"Capacity",
+    "scan_qr_title": "Scan Your Personal QR Code",
+    "scan_qr_subtitle": "Please scan the QR code that was provided to you at the reception to start your buffet order",
+    "use_scanner_hint": "Use the scanner to scan your QR code",
+    "verifying_qr": "Verifying QR Code..."
 }

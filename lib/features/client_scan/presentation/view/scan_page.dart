@@ -1,3 +1,4 @@
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:lighthouse_buffet/core/constants/messages.dart';
@@ -18,6 +19,7 @@ class _ScanPageState extends State<ScanPage> {
   final TextEditingController _controller = TextEditingController();
   final FocusNode _focusNode = FocusNode();
   bool _isVerifying = false;
+  bool _showInstructions = true;
   late QrCodeVerificationRepo _qrCodeVerificationRepo;
 
   @override
@@ -136,62 +138,147 @@ class _ScanPageState extends State<ScanPage> {
     });
 
     return Scaffold(
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            SvgPicture.asset(
-              width: MediaQuery.of(context).size.width / 3,
-              "assets/svg/en-logo.svg",
-            ),
-            const SizedBox(
-              height: 30,
-            ),
-            Image.asset(
-              "assets/gif/qr scanner.gif",
-              width: MediaQuery.of(context).size.width / 5,
-            ),
-            Text(
-              "Scan Your QR Code",
-              style: Theme.of(context)
-                  .textTheme
-                  .bodyLarge
-                  ?.copyWith(color: lightGrey),
-            ),
-            if (_isVerifying) ...[
-              const SizedBox(height: 16),
-              const CircularProgressIndicator(),
-              const SizedBox(height: 8),
-              Text(
-                "Verifying QR Code...",
-                style: Theme.of(context)
-                    .textTheme
-                    .bodyMedium
-                    ?.copyWith(color: lightGrey),
+      backgroundColor: darkNavy,
+      body: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () {
+          setState(() {
+            _showInstructions = !_showInstructions;
+          });
+        },
+        child: SafeArea(
+          child: Center(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 32),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  SvgPicture.asset(
+                    width: MediaQuery.of(context).size.width / 3,
+                    "assets/svg/en-logo.svg",
+                  ),
+                  const SizedBox(height: 40),
+                  // Instruction card + scanner
+                  Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      Image.asset(
+                        "assets/gif/qr scanner.gif",
+                        width: MediaQuery.of(context).size.width / 4,
+                      ),
+                      if (_showInstructions)
+                        Container(
+                          width: 2* MediaQuery.of(context).size.width / 3,
+                          padding: const EdgeInsets.all(24),
+                          decoration: BoxDecoration(
+                            color: navy.withOpacity(0.6),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(
+                              color: orange.withOpacity(0.5),
+                              width: 2,
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: orange.withOpacity(0.15),
+                                blurRadius: 20,
+                                spreadRadius: 2,
+                              ),
+                            ],
+                          ),
+                          child: Column(
+                            children: [
+                              const Icon(
+                                Icons.qr_code_scanner_rounded,
+                                size: 72,
+                                color: orange,
+                              ),
+                              const SizedBox(height: 20),
+                              Text(
+                                "scan_qr_title".tr(),
+                                textAlign: TextAlign.center,
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .titleLarge
+                                    ?.copyWith(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 24,
+                                    ),
+                              ),
+                              const SizedBox(height: 12),
+                              Text(
+                                "scan_qr_subtitle".tr(),
+                                textAlign: TextAlign.center,
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .bodyMedium
+                                    ?.copyWith(
+                                      color: lightGrey,
+                                      height: 1.5,
+                                      fontSize: 16,
+                                    ),
+                              ),
+                            ],
+                          ),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  if (_isVerifying) ...[
+                    const CircularProgressIndicator(color: orange),
+                    const SizedBox(height: 16),
+                    Text(
+                      "verifying_qr".tr(),
+                      style: Theme.of(context)
+                          .textTheme
+                          .bodyMedium
+                          ?.copyWith(color: lightGrey),
+                    ),
+                  ] else ...[
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(
+                          Icons.qr_code_scanner_sharp,
+                          color: orange,
+                          size: 24,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          "use_scanner_hint".tr(),
+                          style: Theme.of(context)
+                              .textTheme
+                              .bodyMedium
+                              ?.copyWith(color: lightGrey),
+                        ),
+                      ],
+                    ),
+                  ],
+                  const SizedBox(height: 24),
+                  Opacity(
+                    opacity: 0,
+                    child: TextField(
+                      focusNode: _focusNode,
+                      autofocus: true,
+                      controller: _controller,
+                      keyboardType: TextInputType.none,
+                      enabled: !_isVerifying,
+                      onSubmitted: (value) {
+                        if (value.isNotEmpty && !_isVerifying) {
+                          _verifyQrCode(value);
+                        }
+                      },
+                      decoration: const InputDecoration(
+                        border: OutlineInputBorder(),
+                        labelText: 'Scanned QR Code',
+                      ),
+                    ),
+                  ),
+                ],
               ),
-            ],
-            const SizedBox(height: 16),
-            Opacity(
-              opacity: 0,
-              child: TextField(
-                focusNode: _focusNode,
-                autofocus: true,
-                controller: _controller,
-                keyboardType: TextInputType.none,
-                enabled: !_isVerifying,
-                onSubmitted: (value) {
-                  if (value.isNotEmpty && !_isVerifying) {
-                    _verifyQrCode(value);
-                  }
-                },
-                decoration: const InputDecoration(
-                  border: OutlineInputBorder(),
-                  labelText: 'Scanned QR Code',
-                ),
-              ),
             ),
-          ],
+          ),
         ),
       ),
     );
