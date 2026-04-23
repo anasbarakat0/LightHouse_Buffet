@@ -348,7 +348,7 @@ class _ScanPageState extends State<ScanPage> with TickerProviderStateMixin {
                       mainAxisAlignment: MainAxisAlignment.center,
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
-                        // const Spacer(),
+                        const SizedBox(height: 40,),
                         ScanPanelWidget(
                           isVerifying: _isVerifying,
                           showInstructions: _showInstructions,
