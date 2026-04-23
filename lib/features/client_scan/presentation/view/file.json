@@ -1,0 +1,232 @@
+{
+    "message": "Get all premium users done successfully",
+    "status": "OK",
+    "localDateTime": "2026-04-12T18:08:29.60782729",
+    "body": [
+        {
+            "uuid": "80648edc-f7a4-487c-84df-1147010a3467",
+            "firstName": "سالي",
+            "lastName": "طرابلسي",
+            "email": "Sally5041@email.com",
+            "phoneNumber": "0998482454",
+            "gender": "MALE",
+            "study": "",
+            "birthDate": null,
+            "addingDateTime": "2026-03-12T20:01:58.639815",
+            "addedBy": "420ce654-c951-4750-b5b4-99d5fb87303f",
+            "qrCode": {
+                "createdAt": "2026-03-12T20:01:58.640089",
+                "updatedAt": "2026-03-12T20:01:58.640371",
+                "createdBy": "420ce654-c951-4750-b5b4-99d5fb87303f",
+                "lastModifiedBy": null,
+                "id": "bf422456-0f6b-4d64-afe0-6897db268c50",
+                "qrCodeType": "Premium_User",
+                "qrCode": "80648edc-f7a4-487c-84df-1147010a3467-9JbzrLpKNdOw2Yyz-0998482454-Premium_User-bf422456-0f6b-4d64-afe0-6897db268c50"
+            },
+            "generatedPassword": "1243"
+        },
+        {
+            "uuid": "f37695a9-6771-4004-8934-f24c098d1d1a",
+            "firstName": "نايا",
+            "lastName": "المصري",
+            "email": "naya4327@email.com",
+            "phoneNumber": "0997458200",
+            "gender": "FEMALE",
+            "study": null,
+            "birthDate": null,
+            "addingDateTime": "2026-02-07T11:47:16.616948",
+            "addedBy": "420ce654-c951-4750-b5b4-99d5fb87303f",
+            "qrCode": {
+                "createdAt": "2026-02-07T11:47:16.642938",
+                "updatedAt": "2026-02-07T11:47:16.655219",
+                "createdBy": "420ce654-c951-4750-b5b4-99d5fb87303f",
+                "lastModifiedBy": null,
+                "id": "b9b80258-555a-4fe9-ba1c-cf8a3e1b1e8c",
+                "qrCodeType": "Premium_User",
+                "qrCode": "f37695a9-6771-4004-8934-f24c098d1d1a-ooj5FuLKWCSCaZas-0997458200-Premium_User-b9b80258-555a-4fe9-ba1c-cf8a3e1b1e8c"
+            },
+            "generatedPassword": "5583"
+        },
+        {
+            "uuid": "86b52df8-e745-482b-9d70-c78247db5271",
+            "firstName": "معاذ",
+            "lastName": "شرباتي",
+            "email": "76567",
+            "phoneNumber": "0959913058",
+            "gender": "MALE",
+            "study": "",
+            "birthDate": null,
+            "addingDateTime": "2026-02-17T15:45:48.66965",
+            "addedBy": "420ce654-c951-4750-b5b4-99d5fb87303f",
+            "qrCode": {
+                "createdAt": "2026-02-17T15:45:48.669849",
+                "updatedAt": "2026-02-17T15:45:48.670153",
+                "createdBy": "420ce654-c951-4750-b5b4-99d5fb87303f",
+                "lastModifiedBy": null,
+                "id": "0788ec21-02bb-4e38-b8de-3f4f9cbf8c54",
+                "qrCodeType": "Premium_User",
+                "qrCode": "86b52df8-e745-482b-9d70-c78247db5271-dWRMvQLFuyqBluSz-0959913058-Premium_User-0788ec21-02bb-4e38-b8de-3f4f9cbf8c54"
+            },
+            "generatedPassword": "4950"
+        },
+        {
+            "uuid": "0e7de554-44fd-4934-98ab-6d3b3066028c",
+            "firstName": "راما",
+            "lastName": "دركل",
+            "email": "rama2348@email.com",
+            "phoneNumber": "0983279739",
+            "gender": "FEMALE",
+            "study": null,
+            "birthDate": null,
+            "addingDateTime": "2026-02-10T12:24:44.458682",
+            "addedBy": "420ce654-c951-4750-b5b4-99d5fb87303f",
+            "qrCode": {
+                "createdAt": "2026-02-10T12:24:44.459035",
+                "updatedAt": "2026-02-10T12:24:44.460918",
+                "createdBy": "420ce654-c951-4750-b5b4-99d5fb87303f",
+                "lastModifiedBy": null,
+                "id": "d9536973-626f-4a7e-9413-c14ad2bbb9b1",
+                "qrCodeType": "Premium_User",
+                "qrCode": "0e7de554-44fd-4934-98ab-6d3b3066028c-0pdg426F7kj7HbBs-0983279739-Premium_User-d9536973-626f-4a7e-9413-c14ad2bbb9b1"
+            },
+            "generatedPassword": "1816"
+        },
+        {
+            "uuid": "6d930c22-d65a-4dfa-bd0b-821e8cded491",
+            "firstName": "جودي",
+            "lastName": "غوراني",
+            "email": "698552",
+            "phoneNumber": "0953470542",
+            "gender": "FEMALE",
+            "study": "",
+            "birthDate": null,
+            "addingDateTime": "2026-02-09T11:21:33.659199",
+            "addedBy": "420ce654-c951-4750-b5b4-99d5fb87303f",
+            "qrCode": {
+                "createdAt": "2026-02-09T11:21:33.660076",
+                "updatedAt": "2026-02-09T11:21:33.661305",
+                "createdBy": "420ce654-c951-4750-b5b4-99d5fb87303f",
+                "lastModifiedBy": null,
+                "id": "486d58c8-2cea-431a-9c81-21181e68c4ae",
+                "qrCodeType": "Premium_User",
+                "qrCode": "6d930c22-d65a-4dfa-bd0b-821e8cded491-OglugHNo4gnaeBsi-0953470542-Premium_User-486d58c8-2cea-431a-9c81-21181e68c4ae"
+            },
+            "generatedPassword": "2872"
+        },
+        {
+            "uuid": "5bb19363-c9dc-42be-9c38-0a6119df4023",
+            "firstName": "عبد القادر",
+            "lastName": "دباس",
+            "email": "dabbasabd05@gmail.com",
+            "phoneNumber": "0998800785",
+            "gender": "MALE",
+            "study": "تصميم داخلي",
+            "birthDate": null,
+            "addingDateTime": "2026-02-07T14:34:02.293343",
+            "addedBy": "420ce654-c951-4750-b5b4-99d5fb87303f",
+            "qrCode": {
+                "createdAt": "2026-02-07T14:34:02.294555",
+                "updatedAt": "2026-02-07T14:34:02.295198",
+                "createdBy": "420ce654-c951-4750-b5b4-99d5fb87303f",
+                "lastModifiedBy": null,
+                "id": "0cc0e9df-3f53-4b14-8399-62f04cc23cc1",
+                "qrCodeType": "Premium_User",
+                "qrCode": "5bb19363-c9dc-42be-9c38-0a6119df4023-80948D1Zb3ZvpsI6-0998800785-Premium_User-0cc0e9df-3f53-4b14-8399-62f04cc23cc1"
+            },
+            "generatedPassword": "2549"
+        },
+        {
+            "uuid": "2f924969-3551-49c4-8db7-e7a9bde65d52",
+            "firstName": "كوتش",
+            "lastName": "البظنه",
+            "email": "yamen@gmail.com",
+            "phoneNumber": "0932288902",
+            "gender": "MALE",
+            "study": "هندسة مدنية",
+            "birthDate": null,
+            "addingDateTime": "2026-02-10T14:34:05.441056",
+            "addedBy": "420ce654-c951-4750-b5b4-99d5fb87303f",
+            "qrCode": {
+                "createdAt": "2026-02-10T14:34:05.441354",
+                "updatedAt": "2026-02-10T14:34:05.442002",
+                "createdBy": "420ce654-c951-4750-b5b4-99d5fb87303f",
+                "lastModifiedBy": null,
+                "id": "7df22c44-076e-4bc5-8a5b-e2f712829874",
+                "qrCodeType": "Premium_User",
+                "qrCode": "2f924969-3551-49c4-8db7-e7a9bde65d52-0l8JMK02YdrkZf4R-0932288902-Premium_User-7df22c44-076e-4bc5-8a5b-e2f712829874"
+            },
+            "generatedPassword": "6290"
+        },
+        {
+            "uuid": "9f52b7d6-521a-4412-819c-c9fc7a5ca232",
+            "firstName": "eng.",
+            "lastName": "مجاهد",
+            "email": "hamzeh@gmail.com",
+            "phoneNumber": "0995499331",
+            "gender": "MALE",
+            "study": "هندسة مدنية",
+            "birthDate": null,
+            "addingDateTime": "2026-02-10T14:32:50.937903",
+            "addedBy": "420ce654-c951-4750-b5b4-99d5fb87303f",
+            "qrCode": {
+                "createdAt": "2026-02-10T14:32:50.940114",
+                "updatedAt": "2026-02-10T14:32:50.941096",
+                "createdBy": "420ce654-c951-4750-b5b4-99d5fb87303f",
+                "lastModifiedBy": null,
+                "id": "556cf62c-190d-40a9-8987-84e16ea80d71",
+                "qrCodeType": "Premium_User",
+                "qrCode": "9f52b7d6-521a-4412-819c-c9fc7a5ca232-qYzGgTRdemQcFSGj-0995499331-Premium_User-556cf62c-190d-40a9-8987-84e16ea80d71"
+            },
+            "generatedPassword": "8731"
+        },
+        {
+            "uuid": "0f4b6b99-3935-4610-96de-f1a582cca82a",
+            "firstName": "أمجد",
+            "lastName": "بكداش",
+            "email": "amjadbk@gmail.com",
+            "phoneNumber": "0995139545",
+            "gender": "MALE",
+            "study": "هندسة معلوماتية",
+            "birthDate": null,
+            "addingDateTime": "2026-02-07T14:37:06.086341",
+            "addedBy": "420ce654-c951-4750-b5b4-99d5fb87303f",
+            "qrCode": {
+                "createdAt": "2026-02-07T14:37:06.086677",
+                "updatedAt": "2026-02-07T14:37:06.087092",
+                "createdBy": "420ce654-c951-4750-b5b4-99d5fb87303f",
+                "lastModifiedBy": null,
+                "id": "0267caeb-21dd-4e8c-b00d-58e3c8649f5b",
+                "qrCodeType": "Premium_User",
+                "qrCode": "0f4b6b99-3935-4610-96de-f1a582cca82a-CKEp6pZgWCswVH5w-0995139545-Premium_User-0267caeb-21dd-4e8c-b00d-58e3c8649f5b"
+            },
+            "generatedPassword": "1350"
+        },
+        {
+            "uuid": "f844add1-9c34-46fa-8e60-ed251a16fa07",
+            "firstName": "علي",
+            "lastName": "بيضون",
+            "email": "54086",
+            "phoneNumber": "0956611000",
+            "gender": "MALE",
+            "study": "هندسة معلوماتية",
+            "birthDate": null,
+            "addingDateTime": "2026-02-10T07:31:03.353988",
+            "addedBy": "420ce654-c951-4750-b5b4-99d5fb87303f",
+            "qrCode": {
+                "createdAt": "2026-02-10T07:31:03.358362",
+                "updatedAt": "2026-02-10T07:31:03.363815",
+                "createdBy": "420ce654-c951-4750-b5b4-99d5fb87303f",
+                "lastModifiedBy": null,
+                "id": "4ee6dc1c-1480-47df-b67d-f1e30519ffa3",
+                "qrCodeType": "Premium_User",
+                "qrCode": "f844add1-9c34-46fa-8e60-ed251a16fa07-pMBeIOLEaQhBfNdI-0956611000-Premium_User-4ee6dc1c-1480-47df-b67d-f1e30519ffa3"
+            },
+            "generatedPassword": "5623"
+        }
+    ],
+    "pageable": {
+        "page": 1,
+        "perPage": 10,
+        "total": 444
+    }
+}

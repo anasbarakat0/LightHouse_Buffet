@@ -1,11 +1,14 @@
-import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/svg.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:lighthouse_buffet/core/constants/messages.dart';
 import 'package:lighthouse_buffet/core/di/injection.dart';
 import 'package:lighthouse_buffet/core/error/failure.dart';
 import 'package:lighthouse_buffet/core/resources/colors.dart';
+import 'package:lighthouse_buffet/features/client_scan/data/models/qr_code_verification_response_model.dart';
 import 'package:lighthouse_buffet/features/client_scan/data/repository/qr_code_verification_repo.dart';
+import 'package:lighthouse_buffet/features/client_scan/presentation/constants/scan_page_constants.dart';
+import 'package:lighthouse_buffet/features/client_scan/presentation/model/verification_step_data.dart';
+import 'package:lighthouse_buffet/features/client_scan/presentation/widget/scan_panel_widget.dart';
 import 'package:lighthouse_buffet/features/invoice/presentation/view/invoice_page.dart';
 
 class ScanPage extends StatefulWidget {
@@ -15,17 +18,58 @@ class ScanPage extends StatefulWidget {
   State<ScanPage> createState() => _ScanPageState();
 }
 
-class _ScanPageState extends State<ScanPage> {
+class _ScanPageState extends State<ScanPage> with TickerProviderStateMixin {
   final TextEditingController _controller = TextEditingController();
   final FocusNode _focusNode = FocusNode();
+
+  late final QrCodeVerificationRepo _qrCodeVerificationRepo;
+  late final AnimationController _verificationProgressController;
+  late final AnimationController _pulseController;
+
   bool _isVerifying = false;
   bool _showInstructions = true;
-  late QrCodeVerificationRepo _qrCodeVerificationRepo;
+
+  bool get _isArabic => Localizations.localeOf(context).languageCode == 'ar';
+
+  String get _logoAsset => _isArabic
+      ? ScanPageConstants.arabicLogoAsset
+      : ScanPageConstants.englishLogoAsset;
+
+  String get _verificationSubtitle => _isArabic
+      ? 'يتم تجهيز وصولك إلى تجربة لايت هاوس بأمان.'
+      : 'Securely preparing your Lighthouse access experience.';
+
+  String get _secureCheckLabel => _isArabic ? 'تحميل ...' : 'Loading ...';
 
   @override
   void initState() {
     super.initState();
     _qrCodeVerificationRepo = getIt<QrCodeVerificationRepo>();
+    _verificationProgressController = AnimationController(
+      vsync: this,
+      duration: ScanPageConstants.verificationDuration,
+    );
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: ScanPageConstants.pulseDuration,
+    );
+    _scheduleFocusRequest();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _scheduleFocusIfCurrentRoute();
+  }
+
+  void _scheduleFocusIfCurrentRoute() {
+    final route = ModalRoute.of(context);
+    if (route != null && route.isCurrent) {
+      _scheduleFocusRequest();
+    }
+  }
+
+  void _scheduleFocusRequest() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _requestFocus();
     });
@@ -37,68 +81,143 @@ class _ScanPageState extends State<ScanPage> {
     }
   }
 
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    // Re-request focus when page becomes visible again (e.g., after returning from another page)
-    final route = ModalRoute.of(context);
-    if (route != null && route.isCurrent) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _requestFocus();
-      });
+  void _onScreenTap() {
+    if (_isVerifying) return;
+
+    setState(() {
+      _showInstructions = !_showInstructions;
+    });
+    _requestFocus();
+  }
+
+  void _startVerificationAnimations() {
+    _verificationProgressController.forward(from: 0);
+    _pulseController
+      ..stop()
+      ..repeat(reverse: true);
+  }
+
+  void _stopVerificationAnimations() {
+    _verificationProgressController
+      ..stop()
+      ..reset();
+    _pulseController
+      ..stop()
+      ..reset();
+  }
+
+  Future<void> _ensureMinimumVerificationDuration(DateTime startedAt) async {
+    final elapsed = DateTime.now().difference(startedAt);
+    final remaining = ScanPageConstants.verificationDuration - elapsed;
+
+    if (remaining > Duration.zero) {
+      await Future.delayed(remaining);
     }
   }
 
+  void _finishVerification() {
+    _stopVerificationAnimations();
+
+    if (!mounted) return;
+    setState(() {
+      _isVerifying = false;
+    });
+  }
+
+  void _resetScannerWithMessage(String message) {
+    _controller.clear();
+    _showErrorMessage(message);
+    Future.delayed(
+      ScanPageConstants.focusRestoreDelay,
+      _requestFocus,
+    );
+  }
+
   Future<void> _verifyQrCode(String qrCode) async {
-    if (_isVerifying) return; // Prevent multiple simultaneous verifications
+    if (_isVerifying) return;
 
     setState(() {
       _isVerifying = true;
     });
 
-    final result = await _qrCodeVerificationRepo.verifyQrCode(qrCode);
+    _startVerificationAnimations();
+    final startedAt = DateTime.now();
 
-    result.fold(
-      (failure) {
-        if (!mounted) return;
-        setState(() {
-          _isVerifying = false;
-        });
-        String errorMessage = _getErrorMessage(failure);
-        _controller.clear();
-        if (!mounted) return;
-        _showErrorMessage(errorMessage);
-        Future.delayed(const Duration(milliseconds: 100), () {
-          _requestFocus();
-        });
+    try {
+      final result = await _qrCodeVerificationRepo.verifyQrCode(qrCode);
+      await _ensureMinimumVerificationDuration(startedAt);
+
+      if (!mounted) return;
+      _finishVerification();
+
+      result.fold(
+        _handleVerificationFailure,
+        (response) => _handleVerificationResponse(response, qrCode),
+      );
+    } catch (_) {
+      await _ensureMinimumVerificationDuration(startedAt);
+
+      if (!mounted) return;
+      _finishVerification();
+      _resetScannerWithMessage(ScanPageConstants.genericErrorMessage);
+    }
+  }
+
+  void _handleVerificationFailure(Failures failure) {
+    _resetScannerWithMessage(_getErrorMessage(failure));
+  }
+
+  void _handleVerificationResponse(
+    QrCodeVerificationResponseModel response,
+    String qrCode,
+  ) async {
+    if (response.message == ScanPageConstants.verificationSuccessMessage &&
+        response.status == 'OK') {
+      final uuid = response.body?.uuid ?? qrCode;
+      _controller.clear();
+
+      await Navigator.of(context).push(_buildInvoicePageRoute(uuid));
+      if (!mounted) return;
+      _requestFocus();
+      return;
+    }
+
+    _resetScannerWithMessage(response.message);
+  }
+
+  Route<void> _buildInvoicePageRoute(String uuid) {
+    return PageRouteBuilder<void>(
+      transitionDuration: const Duration(milliseconds: 520),
+      reverseTransitionDuration: const Duration(milliseconds: 420),
+      pageBuilder: (context, animation, secondaryAnimation) {
+        return InvoicePage(uuid: uuid);
       },
-      (response) {
-        if (!mounted) return;
-        setState(() {
-          _isVerifying = false;
-        });
+      transitionsBuilder: (context, animation, secondaryAnimation, child) {
+        final curvedAnimation = CurvedAnimation(
+          parent: animation,
+          curve: Curves.easeOutCubic,
+          reverseCurve: Curves.easeInCubic,
+        );
 
-        if (response.message == "QR Code verified successfully" &&
-            response.status == "OK") {
-          final uuid = response.body?.uuid ?? qrCode;
-          _controller.clear();
-          if (!mounted) return;
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => InvoicePage(
-                uuid: uuid,
-              ),
+        return FadeTransition(
+          opacity: Tween<double>(
+            begin: 0,
+            end: 1,
+          ).animate(curvedAnimation),
+          child: SlideTransition(
+            position: Tween<Offset>(
+              begin: const Offset(0, 0.045),
+              end: Offset.zero,
+            ).animate(curvedAnimation),
+            child: ScaleTransition(
+              scale: Tween<double>(
+                begin: 0.985,
+                end: 1,
+              ).animate(curvedAnimation),
+              child: child,
             ),
-          );
-        } else {
-          _controller.clear();
-          if (!mounted) return;
-          _showErrorMessage(response.message);
-          Future.delayed(const Duration(milliseconds: 100), () {
-            _requestFocus();
-          });
-        }
+          ),
+        );
       },
     );
   }
@@ -106,179 +225,156 @@ class _ScanPageState extends State<ScanPage> {
   String _getErrorMessage(Failures failure) {
     if (failure is ServerFailure) {
       return failure.message;
-    } else if (failure is ForbiddenFailure) {
-      return failure.message;
-    } else if (failure is OfflineFailure) {
-      return connectionMessage;
-    } else if (failure is NoDataFailure) {
-      return failure.message;
-    } else {
-      return "An error occurred. Please try again.";
     }
+    if (failure is ForbiddenFailure) {
+      return failure.message;
+    }
+    if (failure is OfflineFailure) {
+      return connectionMessage;
+    }
+    if (failure is NoDataFailure) {
+      return failure.message;
+    }
+    return ScanPageConstants.genericErrorMessage;
   }
 
   void _showErrorMessage(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
+      const SnackBar(
+        content: Text("Error, Try again"),
         backgroundColor: Colors.red,
-        duration: const Duration(seconds: 3),
+        duration: Duration(seconds: 1),
+      ),
+    );
+  }
+
+  List<VerificationStepData> _verificationSteps() {
+    if (_isArabic) {
+      return const [
+        VerificationStepData(
+          icon: Icons.qr_code_2_rounded,
+          label: 'قراءة الرمز',
+        ),
+        // VerificationStepData(
+        //   icon: Icons.shield_outlined,
+        //   label: 'تحقق آمن',
+        // ),
+        VerificationStepData(
+          icon: Icons.restaurant_menu_rounded,
+          label: 'تجهيز الطلب',
+        ),
+      ];
+    }
+
+    return const [
+      VerificationStepData(
+        icon: Icons.qr_code_2_rounded,
+        label: 'Reading Code',
+      ),
+      // VerificationStepData(
+      //   icon: Icons.shield_outlined,
+      //   label: 'Secure Check',
+      // ),
+      VerificationStepData(
+        icon: Icons.restaurant_menu_rounded,
+        label: 'Preparing',
+      ),
+    ];
+  }
+
+  Widget _buildPageBackground() {
+    return Positioned.fill(
+      child: Opacity(
+        opacity: 0.05,
+        child: SvgPicture.asset(
+          ScanPageConstants.backgroundPatternAsset,
+          fit: BoxFit.cover,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHiddenScannerInput() {
+    return Opacity(
+      opacity: 0,
+      child: TextField(
+        focusNode: _focusNode,
+        autofocus: true,
+        controller: _controller,
+        keyboardType: TextInputType.none,
+        enabled: !_isVerifying,
+        onSubmitted: (value) {
+          if (value.isNotEmpty && !_isVerifying) {
+            _verifyQrCode(value);
+          }
+        },
+        decoration: const InputDecoration(
+          border: OutlineInputBorder(),
+          labelText: 'Scanned QR Code',
+        ),
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    // Re-request focus when page is built (e.g., after returning from another page)
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final route = ModalRoute.of(context);
-      if (route != null && route.isCurrent && !_isVerifying) {
-        _requestFocus();
-      }
-    });
+    _scheduleFocusIfCurrentRoute();
 
     return Scaffold(
       backgroundColor: darkNavy,
-      body: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: () {
-          setState(() {
-            _showInstructions = !_showInstructions;
-          });
-        },
-        child: SafeArea(
-          child: Center(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 32),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  SvgPicture.asset(
-                    width: MediaQuery.of(context).size.width / 3,
-                    "assets/svg/en-logo.svg",
-                  ),
-                  const SizedBox(height: 40),
-                  // Instruction card + scanner
-                  Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      Image.asset(
-                        "assets/gif/qr scanner.gif",
-                        width: MediaQuery.of(context).size.width / 4,
-                      ),
-                      if (_showInstructions)
-                        Container(
-                          width: 2* MediaQuery.of(context).size.width / 3,
-                          padding: const EdgeInsets.all(24),
-                          decoration: BoxDecoration(
-                            color: navy.withOpacity(0.6),
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(
-                              color: orange.withOpacity(0.5),
-                              width: 2,
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: orange.withOpacity(0.15),
-                                blurRadius: 20,
-                                spreadRadius: 2,
-                              ),
-                            ],
-                          ),
-                          child: Column(
-                            children: [
-                              const Icon(
-                                Icons.qr_code_scanner_rounded,
-                                size: 72,
-                                color: orange,
-                              ),
-                              const SizedBox(height: 20),
-                              Text(
-                                "scan_qr_title".tr(),
-                                textAlign: TextAlign.center,
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .titleLarge
-                                    ?.copyWith(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 24,
-                                    ),
-                              ),
-                              const SizedBox(height: 12),
-                              Text(
-                                "scan_qr_subtitle".tr(),
-                                textAlign: TextAlign.center,
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .bodyMedium
-                                    ?.copyWith(
-                                      color: lightGrey,
-                                      height: 1.5,
-                                      fontSize: 16,
-                                    ),
-                              ),
-                            ],
-                          ),
-                        ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  if (_isVerifying) ...[
-                    const CircularProgressIndicator(color: orange),
-                    const SizedBox(height: 16),
-                    Text(
-                      "verifying_qr".tr(),
-                      style: Theme.of(context)
-                          .textTheme
-                          .bodyMedium
-                          ?.copyWith(color: lightGrey),
-                    ),
-                  ] else ...[
-                    Row(
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [
+              Color(0xFF011A2E),
+              darkNavy,
+              Color(0xFF0B3254),
+            ],
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+          ),
+        ),
+        child: Stack(
+          children: [
+            _buildPageBackground(),
+            GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: _onScreenTap,
+              child: SafeArea(
+                child: Center(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.symmetric(horizontal: 32),
+                    child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
-                        const Icon(
-                          Icons.qr_code_scanner_sharp,
-                          color: orange,
-                          size: 24,
+                        // const Spacer(),
+                        ScanPanelWidget(
+                          isVerifying: _isVerifying,
+                          showInstructions: _showInstructions,
+                          logoAsset: _logoAsset,
+                          verificationSubtitle: _verificationSubtitle,
+                          secureCheckLabel: _secureCheckLabel,
+                          progressAnimation: _verificationProgressController,
+                          pulseAnimation: _pulseController,
+                          verificationSteps: _verificationSteps(),
                         ),
-                        const SizedBox(width: 8),
-                        Text(
-                          "use_scanner_hint".tr(),
-                          style: Theme.of(context)
-                              .textTheme
-                              .bodyMedium
-                              ?.copyWith(color: lightGrey),
-                        ),
+                        // const Spacer(),
+                        // AnimatedSwitcher(
+                        //   duration: const Duration(milliseconds: 220),
+                        //   child: _isVerifying || !_showInstructions
+                        //       ? const SizedBox.shrink()
+                        //       : _buildScannerHint(context),
+                        // ),
+                        
+                        _buildHiddenScannerInput(),
                       ],
                     ),
-                  ],
-                  const SizedBox(height: 24),
-                  Opacity(
-                    opacity: 0,
-                    child: TextField(
-                      focusNode: _focusNode,
-                      autofocus: true,
-                      controller: _controller,
-                      keyboardType: TextInputType.none,
-                      enabled: !_isVerifying,
-                      onSubmitted: (value) {
-                        if (value.isNotEmpty && !_isVerifying) {
-                          _verifyQrCode(value);
-                        }
-                      },
-                      decoration: const InputDecoration(
-                        border: OutlineInputBorder(),
-                        labelText: 'Scanned QR Code',
-                      ),
-                    ),
                   ),
-                ],
+                ),
               ),
             ),
-          ),
+          ],
         ),
       ),
     );
@@ -286,6 +382,8 @@ class _ScanPageState extends State<ScanPage> {
 
   @override
   void dispose() {
+    _verificationProgressController.dispose();
+    _pulseController.dispose();
     _controller.dispose();
     _focusNode.dispose();
     super.dispose();

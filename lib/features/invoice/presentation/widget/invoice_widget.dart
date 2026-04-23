@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:lighthouse_buffet/core/resources/colors.dart';
 import 'package:lighthouse_buffet/features/invoice/data/models/product_invoice.dart';
 import 'package:lighthouse_buffet/features/invoice/data/source/local/product_data_source.dart';
@@ -24,425 +23,461 @@ class InvoiceWidget extends StatefulWidget {
   });
 
   @override
-  _InvoiceWidgetState createState() => _InvoiceWidgetState();
+  State<InvoiceWidget> createState() => _InvoiceWidgetState();
 }
 
 class _InvoiceWidgetState extends State<InvoiceWidget> {
   final FocusNode _focusNode = FocusNode();
   String _barcodeBuffer = "";
 
+  List<ProductInvoice> get _invoiceItems {
+    return widget.productDataSource.rows.map((row) {
+      return row
+          .getCells()
+          .firstWhere((cell) => cell.columnName == 'remove')
+          .value as ProductInvoice;
+    }).toList(growable: false);
+  }
+
+  int get _totalUnits {
+    return _invoiceItems.fold(0, (sum, item) => sum + item.quantity);
+  }
+
+  String _currency(double amount) => '${amount.toStringAsFixed(2)} S.P';
+
   @override
   void initState() {
     super.initState();
+    _focusNode.addListener(_handleFocusChange);
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _focusNode.requestFocus();
+      _requestScannerFocus();
     });
   }
 
   @override
   void dispose() {
+    _focusNode.removeListener(_handleFocusChange);
     _focusNode.dispose();
     super.dispose();
   }
 
-  void _handleKeyEvent(KeyEvent event) {
-    if (event is KeyDownEvent) {
-      if (event.logicalKey == LogicalKeyboardKey.enter) {
-        if (_barcodeBuffer.isNotEmpty) {
-          widget.onBarcodeScanned(_barcodeBuffer);
-          _barcodeBuffer = "";
-        }
-      } else {
-        final String? character = event.character;
-        if (character != null && character.isNotEmpty) {
-          _barcodeBuffer += character;
-        }
-      }
+  void _handleFocusChange() {
+    if (mounted) {
+      setState(() {});
     }
+  }
+
+  void _requestScannerFocus() {
+    if (mounted) {
+      _focusNode.requestFocus();
+    }
+  }
+
+  void _handleKeyEvent(KeyEvent event) {
+    if (event is! KeyDownEvent) return;
+
+    if (event.logicalKey == LogicalKeyboardKey.enter) {
+      if (_barcodeBuffer.isNotEmpty) {
+        widget.onBarcodeScanned(_barcodeBuffer);
+        _barcodeBuffer = "";
+      }
+      return;
+    }
+
+    final character = event.character;
+    if (character != null && character.isNotEmpty) {
+      _barcodeBuffer += character;
+    }
+  }
+
+  Future<void> _openQuantityDialog(ProductInvoice productInvoice) async {
+    await _showQuantityDialog(productInvoice);
+    _requestScannerFocus();
   }
 
   @override
   Widget build(BuildContext context) {
+    final invoiceItems = _invoiceItems;
+    final itemCount = invoiceItems.length;
+    final panelWidth =
+        (MediaQuery.sizeOf(context).width * 0.29).clamp(320.0, 392.0);
+
     return KeyboardListener(
       focusNode: _focusNode,
       onKeyEvent: _handleKeyEvent,
-      child: Container(
-        width: MediaQuery.of(context).size.width / 3,
-        decoration: BoxDecoration(
-          color: Colors.white,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.1),
-              blurRadius: 10,
-              offset: const Offset(2, 0),
+      child: GestureDetector(
+        behavior: HitTestBehavior.translucent,
+        onTap: _requestScannerFocus,
+        child: Container(
+          width: panelWidth.toDouble(),
+          color: const Color(0xFFF5F7FA),
+          child: SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+              child: Column(
+                children: [
+                  _buildHeader(
+                    context,
+                    itemCount: itemCount,
+                    totalUnits: _totalUnits,
+                  ),
+                  const SizedBox(height: 10),
+                  Expanded(
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(18),
+                        border: Border.all(
+                          color: darkNavy.withValues(alpha: 0.06),
+                        ),
+                      ),
+                      child: Column(
+                        children: [
+                          _buildListHeader(context, itemCount: itemCount),
+                          Expanded(
+                            child: AnimatedSwitcher(
+                              duration: const Duration(milliseconds: 200),
+                              switchInCurve: Curves.easeOutCubic,
+                              switchOutCurve: Curves.easeInCubic,
+                              child: itemCount == 0
+                                  ? _buildEmptyState(context)
+                                  : ListView.separated(
+                                      key: const ValueKey('invoice-list'),
+                                      padding: const EdgeInsets.fromLTRB(
+                                        10,
+                                        8,
+                                        10,
+                                        10,
+                                      ),
+                                      itemCount: itemCount,
+                                      separatorBuilder: (context, index) =>
+                                          const SizedBox(height: 8),
+                                      itemBuilder: (context, index) {
+                                        return _buildInvoiceItemCard(
+                                          context,
+                                          productInvoice: invoiceItems[index],
+                                        );
+                                      },
+                                    ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  _buildFooter(
+                    context,
+                    itemCount: itemCount,
+                    totalUnits: _totalUnits,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHeader(
+    BuildContext context, {
+    required int itemCount,
+    required int totalUnits,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: darkNavy.withValues(alpha: 0.06),
+        ),
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  "Invoice",
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        color: darkNavy,
+                        fontWeight: FontWeight.w800,
+                      ),
+                ),
+              ),
+              _buildFocusChip(context),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: [
+              _buildStatChip(context, label: "Items", value: "$itemCount"),
+              _buildStatChip(context, label: "Units", value: "$totalUnits"),
+              _buildStatChip(
+                context,
+                label: "Total",
+                value: _currency(widget.totalPrice),
+                highlighted: true,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFocusChip(BuildContext context) {
+    final isReady = _focusNode.hasFocus;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
+      decoration: BoxDecoration(
+        color:
+            isReady ? const Color(0x1431C178) : yellow.withValues(alpha: 0.16),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 7,
+            height: 7,
+            decoration: BoxDecoration(
+              color: isReady ? const Color(0xFF31C178) : yellow,
+              shape: BoxShape.circle,
+            ),
+          ),
+          const SizedBox(width: 6),
+          Text(
+            isReady ? "Scanner ready" : "Tap to focus",
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: darkNavy,
+                  fontWeight: FontWeight.w700,
+                ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatChip(
+    BuildContext context, {
+    required String label,
+    required String value,
+    bool highlighted = false,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
+      decoration: BoxDecoration(
+        color: highlighted
+            ? orange.withValues(alpha: 0.1)
+            : lightGrey.withValues(alpha: 0.85),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            "$label: ",
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: grey,
+                  fontWeight: FontWeight.w600,
+                ),
+          ),
+          Text(
+            value,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: highlighted ? orange : darkNavy,
+                  fontWeight: FontWeight.w800,
+                ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildListHeader(BuildContext context, {required int itemCount}) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 10),
+      decoration: BoxDecoration(
+        border: Border(
+          bottom: BorderSide(
+            color: darkNavy.withValues(alpha: 0.05),
+          ),
+        ),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              "Selected products",
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    color: darkNavy,
+                    fontWeight: FontWeight.w800,
+                  ),
+            ),
+          ),
+          if (itemCount > 0)
+            Text(
+              "$itemCount",
+              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    color: orange,
+                    fontWeight: FontWeight.w800,
+                  ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmptyState(BuildContext context) {
+    return Center(
+      key: const ValueKey('invoice-empty'),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 56,
+              height: 56,
+              decoration: BoxDecoration(
+                color: orange.withValues(alpha: 0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.receipt_long_rounded,
+                size: 28,
+                color: orange.withValues(alpha: 0.9),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              "No products selected",
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    color: darkNavy,
+                    fontWeight: FontWeight.w800,
+                  ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              "Scan a product to add it here.",
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: grey,
+                  ),
             ),
           ],
         ),
-        child: SafeArea(
+      ),
+    );
+  }
+
+  Widget _buildInvoiceItemCard(
+    BuildContext context, {
+    required ProductInvoice productInvoice,
+  }) {
+    final product = productInvoice.product;
+    final quantity = productInvoice.quantity;
+    final itemTotal = product.consumptionPrice * quantity;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: () {
+          _openQuantityDialog(productInvoice);
+        },
+        child: Ink(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: const Color(0xFFFCFDFE),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: darkNavy.withValues(alpha: 0.05),
+            ),
+          ),
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Header Section
-              Container(
-                padding: const EdgeInsets.all(24),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [darkNavy, navy],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                ),
-                child: Column(
-                  children: [
-                    SvgPicture.asset(
-                      "assets/svg/en-logo.svg",
-                      width: MediaQuery.of(context).size.width / 7,
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      "Invoice",
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                          ),
-                    ),
-                  ],
-                ),
-              ),
-
-              // Invoice Items List
-              Expanded(
-                child: widget.productDataSource.rows.isEmpty
-                    ? Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.receipt_long_outlined,
-                              size: 64,
-                              color: grey,
-                            ),
-                            const SizedBox(height: 16),
-                            Text(
-                              "No items yet",
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .bodyLarge
-                                  ?.copyWith(color: grey),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              "Scan products to add them",
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .bodySmall
-                                  ?.copyWith(color: grey),
-                            ),
-                          ],
-                        ),
-                      )
-                    : ListView.builder(
-                        padding: const EdgeInsets.all(16),
-                        itemCount: widget.productDataSource.rows.length,
-                        itemBuilder: (context, index) {
-                          final row = widget.productDataSource.rows[index];
-                          final productInvoice = row
-                              .getCells()
-                              .firstWhere((cell) => cell.columnName == 'remove')
-                              .value as ProductInvoice;
-                          final product = productInvoice.product;
-                          final quantity = productInvoice.quantity;
-                          final itemTotal = product.consumptionPrice * quantity;
-
-                          return Container(
-                            margin: const EdgeInsets.only(bottom: 10),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(16),
-                              border: Border.all(
-                                color: grey.withOpacity(0.15),
-                                width: 1.5,
-                              ),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withOpacity(0.04),
-                                  blurRadius: 8,
-                                  offset: const Offset(0, 2),
-                                ),
-                              ],
-                            ),
-                            child: Material(
-                              color: Colors.transparent,
-                              child: InkWell(
-                                borderRadius: BorderRadius.circular(16),
-                                onTap: () {
-                                  // Show quantity dialog
-                                  _showQuantityDialog(productInvoice);
-                                },
-                                child: Padding(
-                                  padding: const EdgeInsets.all(16),
-                                  child: Row(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      // Product Info - Primary
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            // Product Name - Primary
-                                            Text(
-                                              product.name,
-                                              style: Theme.of(context)
-                                                  .textTheme
-                                                  .titleMedium
-                                                  ?.copyWith(
-                                                    fontWeight: FontWeight.bold,
-                                                    color: darkNavy,
-                                                    fontSize: 18,
-                                                    height: 1.3,
-                                                  ),
-                                              maxLines: 2,
-                                              overflow: TextOverflow.ellipsis,
-                                            ),
-                                            const SizedBox(height: 8),
-                                            // Price and Quantity Info
-                                            Row(
-                                              children: [
-                                                Container(
-                                                  padding: const EdgeInsets
-                                                      .symmetric(
-                                                      horizontal: 8,
-                                                      vertical: 4),
-                                                  decoration: BoxDecoration(
-                                                    color:
-                                                        orange.withOpacity(0.1),
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                            8),
-                                                  ),
-                                                  child: Text(
-                                                    "${product.consumptionPrice.toStringAsFixed(2)} S.P",
-                                                    style: Theme.of(context)
-                                                        .textTheme
-                                                        .bodySmall
-                                                        ?.copyWith(
-                                                          color: orange,
-                                                          fontWeight:
-                                                              FontWeight.w600,
-                                                          fontSize: 13,
-                                                        ),
-                                                  ),
-                                                ),
-                                                const SizedBox(width: 8),
-                                                Text(
-                                                  "× $quantity",
-                                                  style: Theme.of(context)
-                                                      .textTheme
-                                                      .bodySmall
-                                                      ?.copyWith(
-                                                        color: grey,
-                                                        fontSize: 13,
-                                                      ),
-                                                ),
-                                              ],
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                      const SizedBox(width: 12),
-                                      // Right Side - Quantity Badge and Actions
-                                      Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.end,
-                                        children: [
-                                          // Quantity Badge
-                                          Container(
-                                            padding: const EdgeInsets.symmetric(
-                                                horizontal: 14, vertical: 8),
-                                            decoration: BoxDecoration(
-                                              gradient: LinearGradient(
-                                                colors: [
-                                                  orange,
-                                                  orange.withOpacity(0.8)
-                                                ],
-                                                begin: Alignment.topLeft,
-                                                end: Alignment.bottomRight,
-                                              ),
-                                              borderRadius:
-                                                  BorderRadius.circular(12),
-                                              boxShadow: [
-                                                BoxShadow(
-                                                  color:
-                                                      orange.withOpacity(0.3),
-                                                  blurRadius: 6,
-                                                  offset: const Offset(0, 2),
-                                                ),
-                                              ],
-                                            ),
-                                            child: Text(
-                                              "$quantity",
-                                              style: Theme.of(context)
-                                                  .textTheme
-                                                  .titleMedium
-                                                  ?.copyWith(
-                                                    color: Colors.white,
-                                                    fontWeight: FontWeight.bold,
-                                                    fontSize: 16,
-                                                  ),
-                                            ),
-                                          ),
-                                          const SizedBox(height: 8),
-                                          // Total Price
-                                          Text(
-                                            "${itemTotal.toStringAsFixed(2)} S.P",
-                                            style: Theme.of(context)
-                                                .textTheme
-                                                .bodyLarge
-                                                ?.copyWith(
-                                                  fontWeight: FontWeight.bold,
-                                                  color: darkNavy,
-                                                  fontSize: 16,
-                                                ),
-                                          ),
-                                        ],
-                                      ),
-                                      const SizedBox(width: 8),
-                                      // Remove Button
-                                      Container(
-                                        margin: const EdgeInsets.only(top: 2),
-                                        child: IconButton(
-                                          icon: const Icon(
-                                            Icons.delete_outline,
-                                            color: Colors.red,
-                                            size: 22,
-                                          ),
-                                          onPressed: () {
-                                            widget.onRemove(productInvoice);
-                                          },
-                                          tooltip: "Remove",
-                                          padding: EdgeInsets.zero,
-                                          constraints: const BoxConstraints(),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-              ),
-
-              // Total Price Section
-              Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: lightGrey,
-                  border: Border(
-                    top: BorderSide(
-                      color: grey.withOpacity(0.2),
-                      width: 1,
-                    ),
-                  ),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      "Total:",
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Text(
+                      product.name,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                             color: darkNavy,
+                            fontWeight: FontWeight.w800,
+                            height: 1.25,
                           ),
                     ),
-                    Text(
-                      "${widget.totalPrice.toStringAsFixed(2)} S.P",
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                            fontWeight: FontWeight.bold,
+                  ),
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 5,
+                    ),
+                    decoration: BoxDecoration(
+                      color: orange.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Text(
+                      "x$quantity",
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
                             color: orange,
-                            fontSize: 24,
+                            fontWeight: FontWeight.w800,
                           ),
                     ),
-                  ],
-                ),
+                  ),
+                  const SizedBox(width: 6),
+                  InkWell(
+                    borderRadius: BorderRadius.circular(10),
+                    onTap: () {
+                      widget.onRemove(productInvoice);
+                      _requestScannerFocus();
+                    },
+                    child: Container(
+                      width: 30,
+                      height: 30,
+                      decoration: BoxDecoration(
+                        color: Colors.red.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Icon(
+                        Icons.delete_outline_rounded,
+                        color: Colors.red,
+                        size: 17,
+                      ),
+                    ),
+                  ),
+                ],
               ),
-
-              // Action Buttons
-              Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
-                      blurRadius: 10,
-                      offset: const Offset(0, -2),
-                    ),
-                  ],
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton(
-                        onPressed: () {
-                          Navigator.of(context).pop();
-                        },
-                        style: OutlinedButton.styleFrom(
-                          side: BorderSide(color: grey, width: 1.5),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                        ),
-                        child: Text(
-                          'Cancel',
-                          style:
-                              Theme.of(context).textTheme.labelLarge?.copyWith(
-                                    color: darkNavy,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      flex: 2,
-                      child: ElevatedButton(
-                        onPressed: widget.productDataSource.rows.isEmpty
-                            ? null
-                            : widget.onSubmit,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: orange,
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          elevation: 2,
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Icon(Icons.check_circle_outline, size: 20),
-                            const SizedBox(width: 8),
-                            Text(
-                              'Submit Invoice',
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .labelLarge
-                                  ?.copyWith(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: [
+                  _buildItemChip(
+                    context,
+                    label: "Unit",
+                    value: _currency(product.consumptionPrice),
+                  ),
+                  _buildItemChip(
+                    context,
+                    label: "Total",
+                    value: _currency(itemTotal),
+                    highlighted: true,
+                  ),
+                ],
               ),
             ],
           ),
@@ -451,12 +486,152 @@ class _InvoiceWidgetState extends State<InvoiceWidget> {
     );
   }
 
-  void _showQuantityDialog(ProductInvoice productInvoice) {
+  Widget _buildItemChip(
+    BuildContext context, {
+    required String label,
+    required String value,
+    bool highlighted = false,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      decoration: BoxDecoration(
+        color: highlighted
+            ? orange.withValues(alpha: 0.1)
+            : lightGrey.withValues(alpha: 0.85),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            "$label: ",
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: grey,
+                  fontWeight: FontWeight.w600,
+                ),
+          ),
+          Text(
+            value,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: highlighted ? orange : darkNavy,
+                  fontWeight: FontWeight.w800,
+                ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFooter(
+    BuildContext context, {
+    required int itemCount,
+    required int totalUnits,
+  }) {
+    final canSubmit = itemCount > 0;
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: darkNavy.withValues(alpha: 0.06),
+        ),
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      "Grand total",
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: grey,
+                            fontWeight: FontWeight.w600,
+                          ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      _currency(widget.totalPrice),
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                            color: darkNavy,
+                            fontWeight: FontWeight.w800,
+                          ),
+                    ),
+                  ],
+                ),
+              ),
+              Text(
+                "$itemCount items / $totalUnits units",
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: grey,
+                      fontWeight: FontWeight.w700,
+                    ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                  },
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: darkNavy,
+                    side: BorderSide(
+                      color: darkNavy.withValues(alpha: 0.12),
+                    ),
+                    padding: const EdgeInsets.symmetric(vertical: 13),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                  child: const Text("Cancel"),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                flex: 2,
+                child: ElevatedButton(
+                  onPressed: canSubmit ? widget.onSubmit : null,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: orange,
+                    foregroundColor: Colors.white,
+                    disabledBackgroundColor: grey.withValues(alpha: 0.35),
+                    elevation: 0,
+                    padding: const EdgeInsets.symmetric(vertical: 13),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                  child: Text(
+                    "Submit Invoice",
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w800,
+                        ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _showQuantityDialog(ProductInvoice productInvoice) async {
     final quantityController = TextEditingController(
       text: productInvoice.quantity.toString(),
     );
 
-    showDialog(
+    await showDialog<void>(
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
@@ -502,10 +677,12 @@ class _InvoiceWidgetState extends State<InvoiceWidget> {
                     },
                   ),
                   Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 8,
+                    ),
                     decoration: BoxDecoration(
-                      color: orange.withOpacity(0.1),
+                      color: orange.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
@@ -553,7 +730,7 @@ class _InvoiceWidgetState extends State<InvoiceWidget> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: Text(
+              child: const Text(
                 "Cancel",
                 style: TextStyle(color: grey),
               ),
@@ -572,7 +749,8 @@ class _InvoiceWidgetState extends State<InvoiceWidget> {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                       content: Text(
-                          "Invalid quantity. Must be between 1 and ${productInvoice.product.quantity}"),
+                        "Invalid quantity. Must be between 1 and ${productInvoice.product.quantity}",
+                      ),
                       backgroundColor: Colors.red,
                       duration: const Duration(seconds: 2),
                     ),

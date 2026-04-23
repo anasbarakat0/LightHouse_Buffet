@@ -49,6 +49,7 @@ flutter:
   assets:
     - assets/
     - assets/gif/qr scanner.mp4
+    - assets/gif/qr_scanner_transparent.gif
     - assets/svg/
     - assets/gif/
     - assets/icons/
